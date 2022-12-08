@@ -120,7 +120,6 @@ Resources:
             DeleteOnTermination: true
             VolumeType: 'gp2'
       ImageId: !Ref Ami
-      # KeyName: !Ref SSHKey
       InstanceType: t3.small
 
   WebAppASG:
