@@ -1,0 +1,14 @@
+[
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "Udagram"
+  },
+  {
+    "ParameterKey": "Ami",
+    "ParameterValue": "ami-0574da719dca65348"
+  },
+  {
+    "ParameterKey": "SSHKey",
+    "ParameterValue": "udacity"
+  }
+]

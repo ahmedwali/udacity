@@ -1,0 +1,122 @@
+Description: >
+  Ahmed Wali / Create a Bastion host
+
+Parameters:
+  EnvironmentName:
+    Description: The name of the deployment
+    Type: String
+    Default: Udagram
+
+  BastionAmi:
+    Description: An AMI is a template that contains the software configuration
+    Type: String
+    Default: 'ami-0b0dcb5067f052a63'
+    
+  SSHKey:
+    Description: KeyName to access bastion host
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: udacity
+
+  CorporateIP:
+    Description: Ip address to allow SSH access to the bastion host
+    Type: String
+    Default: 176.44.61.226/32
+
+Resources:
+  BastionSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SG to access to bastion host
+      VpcId:
+        Fn::ImportValue: !Sub '${EnvironmentName}-VPCID'
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: !Ref CorporateIP
+
+  Bastion1:
+    Type: AWS::EC2::Instance
+    DependsOn:
+      - BastionSecurityGroup
+    Properties:
+      SecurityGroupIds:
+        - Ref: BastionSecurityGroup
+      SubnetId:
+        Fn::ImportValue: !Sub '${EnvironmentName}-PUB1-SN'
+      ImageId: !Ref BastionAmi
+      InstanceType: t3.small
+      KeyName: !Ref SSHKey
+
+  EIP1:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain:
+        Fn::ImportValue: !Sub '${EnvironmentName}-VPCID'
+
+  EIPAssociation1:
+    Type: AWS::EC2::EIPAssociation
+    DependsOn:
+      - Bastion1
+      - EIP1
+    Properties:
+      InstanceId:
+        Ref: Bastion1
+      AllocationId:
+        Fn::GetAtt:
+          - EIP1
+          - AllocationId
+
+  Bastion2:
+    Type: AWS::EC2::Instance
+    DependsOn:
+      - BastionSecurityGroup
+    Properties:
+      ImageId: !Ref BastionAmi
+      InstanceType: t3.small
+      KeyName: !Ref SSHKey
+      SecurityGroupIds:
+        - Ref: BastionSecurityGroup
+      SubnetId:
+        Fn::ImportValue: !Sub '${EnvironmentName}-PUB2-SN'
+
+  EIP2:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain:
+        Fn::ImportValue: !Sub '${EnvironmentName}-VPCID'
+
+  EIPAssociation2:
+    Type: AWS::EC2::EIPAssociation
+    DependsOn:
+      - Bastion2
+      - EIP2
+    Properties:
+      InstanceId:
+        Ref: Bastion2
+      AllocationId:
+        Fn::GetAtt:
+          - EIP2
+          - AllocationId
+
+Outputs:
+  CIDRBastion1:
+    Description: The CIDR of Bastion Host 1
+    Value: !Join ['', [!GetAtt Bastion1.PrivateIp, !Sub '/32']]
+    Export:
+      Name: !Sub ${EnvironmentName}-BASTION1-CIDR
+
+  CIDRBastion2:
+    Description: The CIDR to the Bastion Host 2
+    Value: !Join ['', [!GetAtt Bastion2.PrivateIp, !Sub '/32']]
+    Export:
+      Name: !Sub ${EnvironmentName}-BASTION2-CIDR
+
+  SSHKey:
+    Description: SSH Key Name
+    Value: !Ref SSHKey
+    Export:
+      Name: !Sub ${EnvironmentName}-BASTION-KEYNAME

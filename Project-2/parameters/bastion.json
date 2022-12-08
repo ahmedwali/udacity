@@ -1,0 +1,18 @@
+[
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "Udagram"
+  },
+  {
+    "ParameterKey": "CorporateIP",
+    "ParameterValue": "176.44.61.226/32"
+  },
+  {
+    "ParameterKey": "SSHKey",
+    "ParameterValue": "udacity"
+  },
+  {
+    "ParameterKey": "BastionAmi",
+    "ParameterValue": "ami-0b0dcb5067f052a63"
+  }
+]

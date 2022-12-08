@@ -1,0 +1,59 @@
+Description: >
+  AhmedWali / Create a IAM policy
+
+Parameters:
+  EnvironmentName:
+    Description: The name of the deployment
+    Type: String
+    Default: Udagram
+
+  BucketName:
+    Description: S3 Bucket Name
+    Type: String
+    Default: ahmedwali-udacity-project2
+
+Resources:
+  EC2S3AccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service:
+                - 'ec2.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+
+  S3AccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: S3AccessPolicy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+            Resource: !Sub "arn:aws:s3:::${BucketName}/*"
+          - Effect: Allow
+            Action:
+              - s3:ListBucket
+              - s3:GetBucketLocation
+            Resource: !Sub "arn:aws:s3:::${BucketName}"
+      Roles:
+        - !Ref EC2S3AccessRole
+
+  WebServerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2S3AccessRole
+
+Outputs:
+  EC2S3AccessRole:
+    Description: 'Allow EC2 instances to access S3'
+    Value: !Ref WebServerInstanceProfile
+    Export:
+      Name: !Sub ${EnvironmentName}-IAM-NAME

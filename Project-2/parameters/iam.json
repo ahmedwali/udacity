@@ -1,0 +1,10 @@
+[
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "Udagram"
+  },
+  {
+    "ParameterKey": "BucketName",
+    "ParameterValue": "ahmedwali-udacity-project2"
+  }
+]

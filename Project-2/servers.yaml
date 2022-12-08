@@ -1,0 +1,189 @@
+Description: >
+  Ahmed Wali / Create EC2 instances
+
+Parameters:
+  EnvironmentName:
+    Description: The name of the deployment
+    Type: String
+    Default: Udagram
+
+  Ami:
+    Description: An AMI is a template that contains the software configuration
+    Type: String
+    Default: 'ami-0574da719dca65348'
+
+  SSHKey:
+    Description: KeyName to access App host
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: udacity
+
+Resources:
+  LBSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: LBSecGroup
+      GroupDescription: Allow HTTP to load balancer
+      VpcId:
+        Fn::ImportValue: !Sub '${EnvironmentName}-VPCID'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} LBSecGroup
+
+  WebServerSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: WebServerSecGroup
+      GroupDescription: Allow HTTP and SSH access
+      VpcId:
+        Fn::ImportValue: !Sub '${EnvironmentName}-VPCID'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} WebServerSecGroup
+
+  WebAppSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP and SHH access
+      VpcId:
+        Fn::ImportValue: !Sub '${EnvironmentName}-VPCID'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp:
+            Fn::ImportValue: !Sub ${EnvironmentName}-BASTION1-CIDR
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp:
+            Fn::ImportValue: !Sub ${EnvironmentName}-BASTION2-CIDR
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-WASG
+
+  WebAppLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          apt-get update -y
+          apt-get install unzip awscli -y
+          apt-get install apache2 -y
+          systemctl start apache2.service
+          cd /var/www/html
+          sudo rm index.html
+          sudo aws s3 cp s3://ahmedwali-udacity-project2/instagram-clone.zip .
+          sudo unzip instagram-clone.zip
+          sudo rm instagram-clone.zip
+      IamInstanceProfile:
+        Fn::ImportValue: !Sub '${EnvironmentName}-IAM-NAME'
+      SecurityGroups:
+        - Ref: 'WebAppSG'
+      BlockDeviceMappings:
+        - DeviceName: '/dev/sdk'
+          Ebs:
+            VolumeSize: '10'
+            DeleteOnTermination: true
+            VolumeType: 'gp2'
+      ImageId: !Ref Ami
+      # KeyName: !Ref SSHKey
+      InstanceType: t3.small
+
+  WebAppASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      MinSize: 4
+      MaxSize: 4
+      DesiredCapacity: 4
+      VPCZoneIdentifier:
+        - Fn::ImportValue: !Sub '${EnvironmentName}-PRI1-SN'
+        - Fn::ImportValue: !Sub '${EnvironmentName}-PRI2-SN'
+      LaunchConfigurationName: !Ref WebAppLaunchConfig
+      TargetGroupARNs:
+        - Ref: TargetGroup
+
+  AppLB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: udagram
+      Subnets:
+        - Fn::ImportValue: !Sub '${EnvironmentName}-PUB1-SN'
+        - Fn::ImportValue: !Sub '${EnvironmentName}-PUB2-SN'
+      SecurityGroups:
+        - Ref: LBSecGroup
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref AppLB
+      Port: 80
+      Protocol: HTTP
+
+  WebAppLR:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values: [/]
+      ListenerArn: !Ref Listener
+      Priority: 1
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 8
+      HealthyThresholdCount: 2
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId:
+        Fn::ImportValue:
+          Fn::Sub: '${EnvironmentName}-VPCID'
+
+Outputs:
+  Website:
+    Description: Load Balancer DNS Name
+    Value: !Join ['', ['http://', !GetAtt [AppLB, DNSName]]]
