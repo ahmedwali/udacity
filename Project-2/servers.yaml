@@ -116,7 +116,7 @@ Resources:
       BlockDeviceMappings:
         - DeviceName: '/dev/sdk'
           Ebs:
-            VolumeSize: '10'
+            VolumeSize: 10
             DeleteOnTermination: true
             VolumeType: 'gp2'
       ImageId: !Ref Ami
@@ -125,9 +125,9 @@ Resources:
   WebAppASG:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      MinSize: 4
-      MaxSize: 4
-      DesiredCapacity: 4
+      MinSize: '4'
+      MaxSize: '4'
+      DesiredCapacity: '4'
       VPCZoneIdentifier:
         - Fn::ImportValue: !Sub '${EnvironmentName}-PRI1-SN'
         - Fn::ImportValue: !Sub '${EnvironmentName}-PRI2-SN'
